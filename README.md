@@ -1,209 +1,60 @@
-# Wikibase Suite
+# Wikibase Suite Deploy – Setup Script
 
-Wikibase Suite (WBS) eases self-hosting [Wikibase](https://wikiba.se) in production, allowing you to maintain a knowledge graph similar to [Wikidata](https://www.wikidata.org/wiki/Wikidata:Main_Page).
+This script bootstraps a Wikibase Suite Deploy installation handling or guiding you through all of the following steps:
 
-If you want to host your own WBS instance, head over to the [WBS Deploy documentation](./deploy/README.md).
+1. **Check for Git** – Installs Git if it is not already available on the system.  
+2. **Clone the repository** – Downloads the Wikibase Suite Deploy code from the official repository.  
+3. **Check for Docker** – Installs Docker if it is not already available on the system.  
+4. **Prompt for configuration** – Collects all required setup values interactively through a web interface.  
+5. **Launch deployment** – Starts the deployment process once configuration is complete and notifies you once your new Suite instance is available.
 
-If you're looking for individual WBS images, head over to [hub.docker.com/u/wikibase](https://hub.docker.com/u/wikibase).
+## Installation
 
-> 🔧 This document is intended for people developing WBS.
+1. Setup on a new VPS instance that meets the following criteria:
 
-## Overview
+  - Meets minimum hardware requirements (see https://github.com/wmde/wikibase-release-pipeline/tree/main/deploy#requirements)
+  - Is running one of these officially supported Linux distributions: Ubuntu (22, 24), Debian (11, 12), Fedora, and CentOS
+  - You have root level SSH access to the instance
 
-This repository contains the Wikibase Suite toolset used for [building](./build), [testing](./test), and [publishing ](.github/workflows) WBS Images and [WBS Deploy](./deploy).
-
-## Quick reference
-
-### Build
-
-```
-# Build all Wikibase Suite images
-$ ./nx run-many -t build -p "build/**"
-
-# Build only the MediaWiki/Wikibase containers
-$ ./nx build wikibase
-
-# Build the WDQS container without using Docker's cache (accepts `docker buildx bake` options)
-$ ./nx build wdqs --no-cache
-
-# Update upstream commit hashes for wikibase
-$ ./nx run wikibase:update-commits
-
-# Update upstream commit hashes for all images
-$ ./nx run-many -t update-commits
-```
-
-### Test
-
-```
-# Show help for the test CLI, including the various options available. WDIO command line options are also supported (see https://webdriver.io/docs/testrunner/)
-$ ./nx test
-
-# Runs all test suites (defined in `test/suites`)
-$ ./nx test -- all
-
-# Runs the `repo` test suite
-$ ./nx test -- repo
-
-# Runs the `repo` test suite with a specific spec file (paths to spec files are rooted in the `test` directory)
-$ ./nx test -- repo --spec specs/repo/special-item.ts
-
-# Start with a headed browser
-$ ./nx test -- repo --headed
-
-# Start a specific spec only
-./nx test -- repo --spec specs/repo/queryservice.ts
-
-# Start and leave up the test environment for a given test suite without running tests
-$ ./nx test -- repo --setup
-```
-
-### Deploy
-
-```
-$ cd deploy
-$ docker compose up --wait
-```
-
-Find more details in the [WBS Deploy documentation](./deploy/README.md).
-
-## Development setup
-
-To take advantage of the git hooks we've included, you'll need to configure git to use the `.githooks/` directory.
-
-```
-$ git config core.hooksPath .githooks
-```
-
-## Testing
-
-Tests are organized in suites, which can be found in `test/suites`. Each suite runs a series of specs (tests) found in the `test/specs` directory. Which specs run by default in each suite are specified in the `.config.ts` file in each suite directory under the `specs` key.
-
-All test suites are run against the most recently built local Docker images, those with the `:latest` tag, which are also selected when no tag is specified. The `deploy` test suite runs against the remote Docker images specified in the configuration in the `./deploy` directory.
-
-You can run the tests in the Docker container locally exactly as they are run in CI by using `./nx test`.
-
-## Examples usage of `./nx test`:
+2. SSH as root into your new VPS instance and enter the following, following instructions from there:
 
 ```bash
-# See all`./nx test` CLI options
-./nx test --help
-
-# Run all test suites
-./nx test -- all
-
-# Only run a single suite (e.g., repo)
-./nx test -- repo
-
-# Only run a specific file within the setup for any test suite (e.g., repo and the Babel extension)
-./nx test -- repo --spec specs/repo/extensions/babel.ts
+curl -fsSL https://raw.githubusercontent.com/wmde/wikibase-release-pipeline/refs/heads/deploy-setup-script/deploy/setup/start.sh | bash
 ```
 
-There are also a few special options, useful when writing tests or in setting up and debugging the test runner:
+Alternatively, if you already have cloned the repository you can run do start setup running the following commands:
 
 ```bash
-# '--setup`: starts the test environment for the suite and leaves it running, but does not run any specs
-./nx test -- repo --setup
-
-# Sets test timeouts to 1 day so they don't time out while debugging with `await browser.debug()` calls
-# However, this can have undesirable effects during normal test runs, so only use for actual debugging
-# purposes.
-./nx test -- repo --debug
+cd deploy/setup
+./start.sh --skip-clone
 ```
 
-WDIO test runner CLI options are also supported. See https://webdriver.io/docs/testrunner .
+## CLI Options
 
-## Variables for testing some other instance
+`start.sh` also has some CLI options available for special cases, debugging, and development:
 
-In order to test your own instances of the services, make sure to change the following environment variables to point at the services that should be tested:
+| Option           | Description |
+|------------------|-------------|
+| `--debug`        | Enable verbose/debug logging for troubleshooting. |
+| `--skip-clone`   | Skip cloning the repository (use an existing checkout). |
+| `--skip-deps`    | Skip dependency installation (assumes Git & Docker are already installed). |
+| `--skip-launch`  | Do not launch services after configuration completes. |
+
+### Dev-only
+
+| Option           | Description |
+|------------------|-------------|
+| `--dev`          | Development mode: skips clone, dependency installs, and launch; uses a relative repo path for local development. |
+| `--local`        | Mark this run as local which launches setup on localhost:8888 and runs the interactive instead of as a background process. Useful only for dev/testing at this stage.|
+
+These options can be applied using the following command formats:
 
 ```bash
-WIKIBASE_URL=http://wikibase
-WIKIBASE_CLIENT_URL=http://wikibase-client
-QUICKSTATEMENTS_URL=http://quickstatements
-WDQS_URL=http://query
-MW_ADMIN_NAME=
-MW_ADMIN_PASS=
-MW_SCRIPT_PATH=/w
+curl -fsSL https://raw.githubusercontent.com/wmde/wikibase-release-pipeline/refs/heads/deploy-setup-script/deploy/setup/start.sh | bash -s -- [OPTIONS]
 ```
 
-For more information on testing, see the [README](./test/README.md).
+Or, from within the deploy/setup directory of an already cloned repository:
 
-## 🚚 Release and Publish Process
-
-WBS Deploy and WBS Images are released and published using this repository. 
-
-Major releases and those containing significant changes are announced to the community.
-
-### 🛠 Changes to be Released
-
-Different kinds of changes can make a release desirable. All of them should be reviewed and merged to the `main` branch in order to be part of a release.
-
-#### ⏬ Upstream Version Bumps
-
-Changing the version of an upstream component can trigger a version bump on our side. Depending on the change, this may lead to a major, minor, or patch version following [Semantic Versioning](https://semver.org/). Upstream versions are changed in the `build/*/build.env` files. Some of our images support updating some of the version references automatically using `./nx run wikibase:update-commits`, `./nx run quickstatements:update-commits`, and `./nx run wdqs-frontend:update-commits`.
-
-MediaWiki Minor versions, that is moving from 1.41 to 1.42, are a special case. They always lead to a major version bump in Wikibase Image.
-
-#### 🔨 Local Changes
-
-Changes to our products implemented locally also lead to version bumps. Depending on the change, this may lead to a major, minor, or patch version following [Semantic Versioning](https://semver.org/).
-
-### ⚙️ Building and Testing
-
-Changes need to be built and tested. This is done by CI as implemented in `./github/workflows/` and automatically triggered in every PR and every commit on `main`.
-
-Alternatively, to run build and test locally, do:
-```sh
-git checkout main
-git pull
-./nx run-many -t build -p "build/**"
-./nx test -- all --headed
-```
-
-### 🧐 Preparing a Release
-Preparing a release involves verifying the version number and changelog files generated. 
-#### 🏭 Preparing a Release in CI
-This can be done on CI using the [Create a WBS Release Action](https://github.com/wmde/wikibase-release-pipeline/actions/workflows/create_release.yml). This is basically always done for the `main` branch as it contains reviewed changes that are releasable. Choose "Dry run, don't do it yet" to generate versions and changelogs without saving it. In the actions' output, on the `release` job, there is a step called `Create release`. Its logs will show you what changelogs would be generated as well as which version bumps were inferred.
-
-#### 📦 Preparing a Release locally
-The same thing can be done locally. This can come in handy for testing and is often faster.
-
-To do a release dry-run (nothing but informative output will happen) for all projects with unreleased changes, do:
 ```bash
-git checkout main
-git pull
-./nx release --dry-run
+./setup [OPTIONS]
 ```
-
-### 📣 Preparing the Announcement
-Major releases and those containing significant changes are announced to the community. Plan with the Developer Advocate. Sync specifically on 🕑 timing as the announcement should go out shortly after the actual publish. Ideally within a couple of hours.
-
-
-### 🚚 Releasing and Publishing
-Doing a release involves generating the version number bump and changelog files. Publishing images involves pushing them to DockerHub. Publishing Deploy is currently just done by pushing a new git tag to our repository.
-
-#### 🤖 Releasing and Publishing using CI
-
- It can be done on CI using the [Create a WBS Release Action](https://github.com/wmde/wikibase-release-pipeline/actions/workflows/create_release.yml). Releases are basically always done from the `main` branch. Disable "Dry run, don't do it yet" to actually do a release. This will change version numbers in `package.json` files, update changelog files, and `git tag` these new versions. This changes will be then automatically pushed back into the repository. Pushing the new tags (such as `wikibase@1.2.3`) will trigger another CI action that publishes new images on DockerHub.
-
-#### 💻 Releasing and Publishing locally
-
-Releasing can also be done (semi-)locally. To do a release of a single project do:
-```sh
-git checkout main
-git pull
-./nx release -p wikibase
-```
-
-Running locally also allows you to modify the resulting version number manually as well as to customize the changelog file. Use `./nx release --help` to learn more about that.
-
-When you are done, you can publish the release by pushing the tag to Github. For images, this will trigger a Github Actions to publish on DockerHub.
-```
-git push --tags origin wikibase@1.2.3
-```
-
-Pushing `deploy@X.Y.Z` tags does not trigger any further actions.
-
-
-### 🥇 You`re done. Congratulations!
